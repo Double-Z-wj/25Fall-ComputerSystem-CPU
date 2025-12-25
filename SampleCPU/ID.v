@@ -1,6 +1,14 @@
 `include "lib/defines.vh"
+/*  
+    - 需要在该级进行指令译码
+    - 从寄存器中读取需要的数据
+    - 完成数据相关处理
+    - 生成发给EX段的控制信号
+*/
+
 // 指令解码，同时读取寄存器
 // IF/ID阶段可能会取出经符号扩展为32位的立即数和两个从寄存器中读取的数，放入ID/EX流水线寄存器
+
 module ID(
     input wire clk,
     input wire rst,
@@ -268,6 +276,18 @@ module ID(
     assign inst_jr      = op_d[6'b00_0000] & func_d[6'b00_1000];
     assign inst_jal     = op_d[6'b00_0011];
 
+    assign inst_subu    = op_d[6'b00_0000] & func_d[6'b10_0011];
+    assign inst_jr      = op_d[6'b00_0000] & func_d[6'b00_1000];
+    assign inst_jal     = op_d[6'b00_0011];
+    assign inst_addu    = op_d[6'b00_0000] & func_d[6'b10_0001];
+    
+    assign inst_bne     = op_d[6'b00_0101];
+    assign inst_sll     = op_d[6'b00_0000] & func_d[6'b00_0000];
+    assign inst_or      = op_d[6'b00_0000] & func_d[6'b10_0101];
+    
+    assign inst_xor     = op_d[6'b00_0000] & func_d[6'b10_0110];
+    assign inst_lw      = op_d[6'b10_0011];
+    assign inst_sw      = op_d[6'b10_1011];
 
     // 访存指令   
     assign inst_lw      = op_d[6'b10_0011];
