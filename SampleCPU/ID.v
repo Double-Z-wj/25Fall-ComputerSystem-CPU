@@ -182,10 +182,15 @@ module ID(
     wire inst_lui;  // 将 16 位立即数 imm 写入寄存器 rt 的高 16 位，寄存器 rt 的低 16 位置 0。
     wire inst_or;   // 寄存器 rs 中的值与寄存器 rt 中的值按位逻辑或，结果写入寄存器 rd 中。
     wire inst_xor;  // 寄存器 rs 中的值与 0 扩展至 32 位的立即数 imm 按位逻辑或，结果写入寄存器 rt 中。
-
+    wire inst_and;  // 寄存器 rs 中的值与寄存器 rt 中的值按位逻辑与，结果写入寄存器 rd 中。
+    wire inst_nor;  // 寄存器 rs 中的值与寄存器 rt 中的值按位逻辑或，结果取反，写入寄存器 rd 中。
+    wire inst_andi; // 寄存器 rs 中的值与 0 扩展至 32 位的立即数 imm 按位逻辑与，结果写入寄存器 rt 中。
 
 // 移位指令
     wire inst_sll;  // 由立即数 sa 指定移位量，对寄存器 rt 的值进行逻辑左移，结果写入寄存器 rd 中。
+    wire inst_sla;  // 由立即数 sa 指定移位量，对寄存器 rt 的值进行算术左移，结果写入寄存器 rd 中。
+    wire inst_srl;  // 由立即数 sa 指定移位量，对寄存器 rt 的值进行逻辑右移，结果写入寄存器 rd 中。
+    wire inst_sra;  // 由立即数 sa 指定移位量，对寄存器 rt 的值进行算术右移，结果写入寄存器 rd 中。
 
 // 分支跳转指令
     wire inst_beq;  // 如果寄存器 rs 的值等于寄存器 rt 的值则转移，否则顺序执行。
@@ -288,13 +293,13 @@ module ID(
     */
 
     // 位与
-
+    assign inst_and = op_d[6'b00_0000] & func_d[6'b10_0100];
     // 立即数位与
-
+    assign inst_andi = op_d[6'b00_1100];
     // 寄存器高半部分置立即数
     assign inst_lui     = op_d[6'b00_1111];    
     // 位或非
-
+    assign inst_nor     = op_d[6'b00_0000] & func_d[6'b10_0111];
     // 位或
     assign inst_or      = op_d[6'b00_0000] & func_d[6'b10_0101];   
     // 立即数位或
@@ -314,9 +319,13 @@ module ID(
     assign inst_sll     = op_d[6'b00_0000] & func_d[6'b00_0000];
 
     // 算术右移
+    
     // 立即数算术右移
+    assign inst_sra     = op_d[6'b00_0000] & func_d[6'b00_0011];
     // 逻辑右移
+
     // 立即数逻辑右移
+    assign inst_srl     = op_d[6'b00_0000] & func_d[6'b00_0010];
 
 
     /*
@@ -394,13 +403,13 @@ module ID(
     assign op_sub = inst_subu | inst_sub;
     assign op_slt = inst_slt | inst_slti;
     assign op_sltu = inst_sltu | inst_sltiu;
-    assign op_and = 1'b0;
-    assign op_nor = 1'b0;
+    assign op_and = inst_and | inst_andi;
+    assign op_nor = inst_nor;
     assign op_or = inst_ori | inst_or;
     assign op_xor = inst_xor;
     assign op_sll = inst_sll;
-    assign op_srl = 1'b0;
-    assign op_sra = 1'b0;
+    assign op_srl = inst_srl;
+    assign op_sra = inst_sra;
     assign op_lui = inst_lui;
 
     assign alu_op = {op_add, op_sub, op_slt, op_sltu,
