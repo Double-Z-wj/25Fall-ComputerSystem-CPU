@@ -1,4 +1,5 @@
 `include "lib/defines.vh"
+
 module CTRL(
     input wire rst,
     // input wire stallreq_for_ex,

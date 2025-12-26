@@ -20,7 +20,7 @@ module EX(
     input wire [`SaveBus-1:0] id_save_bus,
 
     output wire [`EX_TO_MEM_WD-1:0] ex_to_mem_bus,
-    // 
+    
     output wire [`EX_TO_RF_WD-1:0] ex_to_rf_bus,
 
     output wire data_sram_en,
