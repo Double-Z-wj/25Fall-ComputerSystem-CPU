@@ -1,4 +1,5 @@
 `include "lib/defines.vh"
+
 /*  
     - 需要在该级进行指令译码
     - 从寄存器中读取需要的数据
@@ -22,9 +23,9 @@ module ID(
     input wire [31:0] inst_sram_rdata,
 
     input wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus,
-// 
+
     input wire [`EX_TO_RF_WD-1:0] ex_to_rf_bus,
-// 
+
     input wire [`MEM_TO_RF_WD-1:0] mem_to_rf_bus,
 
     output wire [`LoadBus-1:0] id_load_bus,
@@ -248,56 +249,121 @@ module ID(
     );
 
     
-    // 算术运算指令
-    assign inst_addiu   = op_d[6'b00_1001];
-    assign inst_addu    = op_d[6'b00_0000] & func_d[6'b10_0001];
-    assign inst_add     = op_d[6'b00_0000] & func_d[6'b10_0000];
-    assign inst_addi    = op_d[6'b00_1000];
-    assign inst_sub     = op_d[6'b00_0000] & func_d[6'b10_0010];
-    assign inst_subu    = op_d[6'b00_0000] & func_d[6'b10_0011];
-    assign inst_slt     = op_d[6'b00_0000] & func_d[6'b10_1010];
-    assign inst_slti    = op_d[6'b00_1010];
-    assign inst_sltu    = op_d[6'b00_0000] & func_d[6'b10_1011];
-    assign inst_sltiu   = op_d[6'b00_1011];
+    /* 
+        算术运算指令
+    */
 
-     // 逻辑运算指令
-    assign inst_ori     = op_d[6'b00_1101];
-    assign inst_lui     = op_d[6'b00_1111];
-    assign inst_or      = op_d[6'b00_0000] & func_d[6'b10_0101];
+    // 加（可产生溢出例外）
+    assign inst_add     = op_d[6'b00_0000] & func_d[6'b10_0000];    
+    // 加立即数（可产生溢出例外）
+    assign inst_addi    = op_d[6'b00_1000];    
+    // 无符号加（不产生溢出例外）
+     assign inst_addu   = op_d[6'b00_0000] & func_d[6'b10_0001];   
+    // 无符号加立即数（不产生溢出例外）
+    assign inst_addiu   = op_d[6'b00_1001];    
+    // 减（可产生溢出例外）
+    assign inst_sub     = op_d[6'b00_0000] & func_d[6'b10_0010];    
+    // 无符号减（不产生溢出例外）
+    assign inst_subu    = op_d[6'b00_0000] & func_d[6'b10_0011];    
+    // 有符号小于 置 1
+    assign inst_slt     = op_d[6'b00_0000] & func_d[6'b10_1010];    
+    // 有符号小于立即数 置 1
+    assign inst_slti    = op_d[6'b00_1010];    
+    // 无符号小于 置 1
+    assign inst_sltu    = op_d[6'b00_0000] & func_d[6'b10_1011];    
+    // 无符号小于立即数 置 1
+    assign inst_sltiu   = op_d[6'b00_1011];    
+    // 有符号字除
+
+    // 无符号字除
+    
+    // 有符号字乘
+    
+    // 无符号字乘
+
+
+
+    /* 
+        逻辑运算指令
+    */
+
+    // 位与
+
+    // 立即数位与
+
+    // 寄存器高半部分置立即数
+    assign inst_lui     = op_d[6'b00_1111];    
+    // 位或非
+
+    // 位或
+    assign inst_or      = op_d[6'b00_0000] & func_d[6'b10_0101];   
+    // 立即数位或
+    assign inst_ori     = op_d[6'b00_1101];    
+    // 位异或
     assign inst_xor     = op_d[6'b00_0000] & func_d[6'b10_0110];    
+    // 立即数位异或
+
     
-    // 移位指令
+    /*
+        移位指令
+    */
+
+    // 逻辑左移
+
+    // 立即数逻辑左移
     assign inst_sll     = op_d[6'b00_0000] & func_d[6'b00_0000];
 
+    // 算术右移
+    // 立即数算术右移
+    // 逻辑右移
+    // 立即数逻辑右移
 
-    // 分支跳转指令
+
+    /*
+        分支跳转指令
+    */
+
+    // 分支相等转移
     assign inst_beq     = op_d[6'b00_0100];
-    assign inst_bne     = op_d[6'b00_0101];    
-    assign inst_jr      = op_d[6'b00_0000] & func_d[6'b00_1000];
+    // 分支不等转移
+    assign inst_bne     = op_d[6'b00_0101];  
+
+    // 大于等于0转移
+    // 大于0转移
+    // 小于等于0转移
+    // 小于0转移
+    // bltz
+    // bgtzal
+    // bgezal
+
+    // j
+
+    // 无条件跳转。跳转目标由该分支指令对应的延迟槽指令的 PC 的最高 4 位与立即数 instr_index 左移2 位后的值拼接得到。同时将该分支对应延迟槽指令之后的指令的 PC 值保存至第 31 号通用寄存器中
     assign inst_jal     = op_d[6'b00_0011];
-
-    assign inst_subu    = op_d[6'b00_0000] & func_d[6'b10_0011];
+    // 无条件跳转。跳转目标为寄存器 rs 中的值。
     assign inst_jr      = op_d[6'b00_0000] & func_d[6'b00_1000];
-    assign inst_jal     = op_d[6'b00_0011];
-    assign inst_addu    = op_d[6'b00_0000] & func_d[6'b10_0001];
-    
-    assign inst_bne     = op_d[6'b00_0101];
-    assign inst_sll     = op_d[6'b00_0000] & func_d[6'b00_0000];
-    assign inst_or      = op_d[6'b00_0000] & func_d[6'b10_0101];
-    
-    assign inst_xor     = op_d[6'b00_0000] & func_d[6'b10_0110];
-    assign inst_lw      = op_d[6'b10_0011];
-    assign inst_sw      = op_d[6'b10_1011];
+    // jalr
 
-    // 访存指令   
-    assign inst_lw      = op_d[6'b10_0011];
-    assign inst_sw      = op_d[6'b10_1011];
 
+    /*
+        访存指令
+    */
+
+    // 取字节，有符号拓展
     assign inst_lb      = op_d[6'b10_0000];
+    // 取字节，无符号拓展
     assign inst_lbu     = op_d[6'b10_0100];
+    // 取半字，有符号拓展
     assign inst_lh      = op_d[6'b10_0001];
+    // 取半字，无符号拓展
     assign inst_lhu     = op_d[6'b10_0101];
+    // 取字
+    assign inst_lw      = op_d[6'b10_0011];
+    // 存字
+    assign inst_sw      = op_d[6'b10_1011];
+    // 存字节
     assign inst_sb      = op_d[6'b10_1000];
+    // 存半字
     assign inst_sh      = op_d[6'b10_1001];
 
     // rs to reg1

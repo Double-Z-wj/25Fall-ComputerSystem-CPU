@@ -1,5 +1,7 @@
 `include "lib/defines.vh"
+
 // CPU核心，定义流水线
+
 module mycpu_core(
     input wire clk,
     input wire rst,
