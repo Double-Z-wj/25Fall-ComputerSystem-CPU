@@ -443,14 +443,18 @@ module ID(
                                 inst_lb  | inst_lbu   | inst_lh  | inst_lhu | inst_sh | inst_sb;
 
     // 32'b8 to reg2
-    assign sel_alu_src2[2] = inst_jal | inst_jalr;
+    assign sel_alu_src2[2] = inst_jal | inst_jalr | inst_bgezal | inst_bltzal;
 
     // imm_zero_extend to reg2
     assign sel_alu_src2[3] = inst_ori | inst_andi | inst_xori;
 
 
 
-    assign op_add = inst_add | inst_addi | inst_addiu | inst_jal | inst_addu | inst_lw | inst_sw| inst_add | inst_addi;
+    assign op_add = inst_add | inst_addi | inst_addiu |  inst_addu |  inst_add | inst_addi |
+                    inst_jal | inst_jalr | inst_bltzal | inst_bgezal |
+                    inst_lw | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_sw | inst_sb | inst_sh
+                    ;
+                    
     assign op_sub = inst_subu | inst_sub;
     assign op_slt = inst_slt | inst_slti;
     assign op_sltu = inst_sltu | inst_sltiu;
@@ -479,11 +483,12 @@ module ID(
 
     // regfile store enable
     assign rf_we =  inst_ori | inst_lui | inst_addiu | inst_subu | inst_addu | inst_add | inst_addi | inst_sub |
-                    inst_jr | inst_jal |  inst_sll | inst_sllv | inst_sra | inst_srl | inst_srlv | inst_srav|
+                    inst_jr | inst_jal | inst_jalr | inst_bgezal | inst_bltzal |
+                    inst_sll | inst_sllv | inst_sra | inst_srl | inst_srlv | inst_srav |
                     inst_or | inst_xor | inst_xori | inst_and | inst_andi | inst_nor |
                     inst_lw | inst_lb | inst_lbu | inst_lh | inst_lhu |
-                    inst_slt | inst_slti | inst_sltu | inst_sltiu| inst_jalr
-                     ;
+                    inst_slt | inst_slti | inst_sltu | inst_sltiu
+                    ;
 
 
 
@@ -537,6 +542,10 @@ module ID(
     assign pc_plus_4 = id_pc + 32'h4;
 
     assign rs_eq_rt = (ndata1 == ndata2);
+    assign rs_ge_z  = (!ndata1[31]); // >=跳转
+    assign rs_gt_z  = ((!ndata1[31]) && ndata1!=0); // >跳转
+    assign rs_le_z  = (ndata1 == 0 | ndata1[31]); // <=跳转
+    assign rs_lt_z  = (ndata1[31]); // <跳转
 
     assign br_e = inst_beq & rs_eq_rt | inst_j | inst_jalr | inst_jr | inst_jal | inst_bne & ~rs_eq_rt | 
                   inst_bgez & rs_ge_z | inst_bgtz & rs_gt_z |inst_blez & rs_le_z | inst_bltz & rs_lt_z |
