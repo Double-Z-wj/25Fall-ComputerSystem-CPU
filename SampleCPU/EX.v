@@ -23,11 +23,13 @@ module EX(
     
     output wire [`EX_TO_RF_WD-1:0] ex_to_rf_bus,
 
+    output wire stallreq_for_ex,
+
     output wire data_sram_en,
     output wire [3:0] data_sram_wen,
     output wire [31:0] data_sram_addr,
     output wire [31:0] data_sram_wdata,
-
+    output wire ex_id,
     output wire [3:0] data_ram_sel,
     output wire [`LoadBus-1:0] ex_load_bus
 );
@@ -128,6 +130,8 @@ module EX(
         ex_result       // 31:0
     };
 
+    assign ex_id = sel_rf_res;
+
     assign ex_to_rf_bus = {
 
         rf_we,          // 37
@@ -164,7 +168,16 @@ module EX(
                             inst_sh | inst_lh | inst_lhu ? {{2{byte_sel[2]}},{2{byte_sel[0]}}} :
                             inst_sw | inst_lw ? 4'b1111 : 4'b0000;   
     assign data_sram_en = data_ram_en;
-    assign data_sram_wen = {4{data_ram_wen}} & data_ram_sel;
+    //assign data_sram_wen = {4{data_ram_wen}} & data_ram_sel;
+    //1号点后问题 应该写入数据上
+    assign data_sram_wen = inst_sw ? 4'b1111:
+                        inst_sb & alu_result[1:0]==2'b00 ? 4'b0001:
+                        inst_sb & alu_result[1:0]==2'b01 ? 4'b0010:
+                        inst_sb & alu_result[1:0]==2'b10 ? 4'b0100:
+                        inst_sb & alu_result[1:0]==2'b11 ? 4'b1000:
+                        inst_sh & alu_result[1:0]==2'b00 ? 4'b0011:
+                        inst_sh & alu_result[1:0]==2'b10 ? 4'b1100:
+                        4'b0000;
     assign data_sram_addr = ex_result;
     assign data_sram_wdata  =   inst_sb ? {4{rf_rdata2[7:0]}}  :
                                 inst_sh ? {2{rf_rdata2[15:0]}} : rf_rdata2;
