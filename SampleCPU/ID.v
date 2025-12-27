@@ -350,7 +350,7 @@ module ID(
     */
 
     // 逻辑左移
-    assign inst_sllv    = op_d[6'b00_0000] & func_d[6'b00_0000];
+    assign inst_sllv    = op_d[6'b00_0000] & func_d[6'b00_0100];
     // 立即数逻辑左移
     assign inst_sll     = op_d[6'b00_0000] & func_d[6'b00_0000];
 
@@ -538,7 +538,7 @@ module ID(
 
     assign rs_eq_rt = (ndata1 == ndata2);
 
-    assign br_e = inst_beq & rs_eq_rt | inst_j | inst_jalr | | inst_jr | inst_jal | inst_bne & ~rs_eq_rt | 
+    assign br_e = inst_beq & rs_eq_rt | inst_j | inst_jalr | inst_jr | inst_jal | inst_bne & ~rs_eq_rt | 
                   inst_bgez & rs_ge_z | inst_bgtz & rs_gt_z |inst_blez & rs_le_z | inst_bltz & rs_lt_z |
                   inst_bgezal & rs_ge_z | inst_bltzal & rs_lt_z ;
                    
