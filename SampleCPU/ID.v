@@ -173,9 +173,9 @@ module ID(
     } = ex_hi_lo_bus;
 
     hi_lo_reg u_hi_lo_reg(
-        .clk    (clk    ),
-        .hi_we  (hi_we        ),
-        .lo_we  (lo_we        ),
+        .clk      (clk        ),
+        .hi_we    (hi_we      ),
+        .lo_we    (lo_we      ),
         .hi_wdata (hi_wdata   ),
         .lo_wdata (lo_wdata   ),
         .hi_rdata (hi_rdata   ),
