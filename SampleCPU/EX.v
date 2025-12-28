@@ -23,6 +23,9 @@ module EX(
     
     output wire [`EX_TO_RF_WD-1:0] ex_to_rf_bus,
 
+    input wire [71:0] id_hi_lo_bus,
+    output wire [65:0] ex_hi_lo_bus,
+
     output wire stallreq_for_ex,
 
     output wire data_sram_en,
@@ -39,11 +42,13 @@ module EX(
     reg [`LoadBus-1:0] id_load_bus_r;
     reg [`SaveBus-1:0] id_save_bus_r;
 
+    reg [71:0] id_hi_lo_bus_r;
     always @ (posedge clk) begin
         if (rst) begin
             id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
             id_save_bus_r <= `SaveBus'b0;
             id_load_bus_r <= `LoadBus'b0;
+            id_hi_lo_bus_r <= 71'b0;
         end
         // else if (flush) begin
         //     id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
@@ -52,11 +57,13 @@ module EX(
             id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
             id_save_bus_r <= `SaveBus'b0;
             id_load_bus_r <= `LoadBus'b0;
+            id_hi_lo_bus_r <= 71'b0;
         end
         else if (stall[2]==`NoStop) begin
             id_to_ex_bus_r <= id_to_ex_bus;
             id_save_bus_r <= id_save_bus;
             id_load_bus_r <= id_load_bus;
+            id_hi_lo_bus_r <= id_hi_lo_bus;
         end
     end
 
@@ -113,8 +120,10 @@ module EX(
         .alu_result  (alu_result  )
     );
 
-    assign ex_result = alu_result;
-
+    
+    // assign ex_result =  inst_mfhi ? hi :
+    //                     inst_mflo ? lo :
+    //                     alu_result;
     decoder_2_4 u_decoder_2_4(
         .in  (ex_result[1:0]),
         .out (byte_sel      )
@@ -182,6 +191,42 @@ module EX(
     assign data_sram_wdata  =   inst_sb ? {4{rf_rdata2[7:0]}}  :
                                 inst_sh ? {2{rf_rdata2[15:0]}} : rf_rdata2;
     
+    wire inst_mfhi, inst_mflo, inst_mthi, inst_mtlo;
+    wire inst_mult, inst_multu, inst_div, inst_divu;
+
+    wire [31:0] hi;
+    wire [31:0] lo;
+    wire hi_we;
+    wire lo_we;
+    wire [31:0] hi_wdata;
+    wire [31:0] lo_wdata;
+
+    assign {
+        inst_mfhi,
+        inst_mflo,
+        inst_mthi,
+        inst_mtlo,
+        inst_mult,
+        inst_multu,
+        inst_div,
+        inst_divu,
+        hi,
+        lo
+    }= id_hi_lo_bus_r;
+
+
+
+    assign ex_result =  inst_mfhi ? hi :
+                        inst_mflo ? lo :
+                        alu_result;
+
+    assign ex_hi_lo_bus = {
+        hi_we,
+        lo_we,
+        hi_wdata,
+        lo_wdata
+    };
+
     //assign data_sram_wdata = rf_rdata2;
 
 
@@ -189,6 +234,8 @@ module EX(
     // MUL part
     wire [63:0] mul_result;
     wire mul_signed; // 有符号乘法标记
+
+    assign mul_signed = inst_mult;
 
     reg [31:0] mul_ina;
     reg [31:0] mul_inb;
@@ -299,5 +346,17 @@ module EX(
 
     // mul_result 和 div_result 可以直接使用
     
+    assign hi_we = inst_mthi | inst_mult | inst_multu | inst_div | inst_divu;
+    assign lo_we = inst_mtlo | inst_mult | inst_multu | inst_div | inst_divu;
+
+    assign hi_wdata = inst_mthi ? rf_rdata1 :
+                      inst_mult |inst_multu ? mul_result[63:32] :
+                      inst_div |inst_divu ? div_result[63:32] :
+                      32'b0;
+
+    assign lo_wdata = inst_mtlo ? rf_rdata1 :
+                      inst_mult | inst_multu ? mul_result[31:0] :
+                      inst_div | inst_divu ? div_result[31:0] :
+                      32'b0;
     
 endmodule
