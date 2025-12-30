@@ -131,6 +131,31 @@ module EX(
 
 
 
+    assign alu_src1 = sel_alu_src1[1] ? ex_pc :
+                      sel_alu_src1[2] ? sa_zero_extend : rf_rdata1;
+
+    wire [31:0] hi;
+    wire [31:0] lo;
+    wire hi_we;
+    wire lo_we;
+    wire [31:0] hi_wdata;
+    wire [31:0] lo_wdata;
+
+    assign {
+        inst_mfhi,
+        inst_mflo,
+        inst_mthi,
+        inst_mtlo,
+        inst_mult,
+        inst_multu,
+        inst_div,
+        inst_divu,
+        hi,
+        lo
+    }= id_hi_lo_bus_r;
+
+
+
     // ALU源操作数选择，获取
     assign alu_src1 = sel_alu_src1[1] ? ex_pc : // PC值
                       sel_alu_src1[2] ? sa_zero_extend : // 指令中的移位值sa
