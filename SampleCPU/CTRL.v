@@ -15,14 +15,11 @@ module CTRL(
         if (rst) begin
             stall = `StallBus'b0;
         end
-        else if (stallreq_for_ex) begin
-            stall = `StallBus'b001111;
+        else if (stallreq_for_ex) begin // 来自 EX 阶段
+            stall = `StallBus'b001111;// PC, IF, ID, EX 暂停
         end
-        //else if (stallreq_for_load) begin
-        //    stall = `StallBus'b000011;
-        //end
-        else if (stallreq_for_bru) begin
-            stall = `StallBus'b000111;
+        else if (stallreq_for_bru) begin // 来自分支跳转单元
+            stall = `StallBus'b000111; //  PC、IF、ID 暂停
         end
         else begin
             stall = `StallBus'b0;
