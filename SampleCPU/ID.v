@@ -39,7 +39,7 @@ module ID(
     output wire [`LoadBus-1:0] id_load_bus,
     output wire [`SaveBus-1:0] id_save_bus,
 
-    output wire stallreq_for_bru,// 来自分支跳转单元的暂停请求
+    output wire stallreq_load_use,// 暂停请求
 
     output wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,// 输出到EX阶段的信息总线
 
@@ -689,7 +689,7 @@ module ID(
     };
 
     // 与EX阶段进行数据相关性比较，决定是否暂停流水线
-    assign stallreq_for_bru = ex_id & // 当前EX阶段指令要写寄存器，请求暂停
+    assign stallreq_load_use = ex_id & // 当前EX阶段指令要写寄存器，请求暂停
     (& ex_rf_we & (rs == ex_rf_waddr | rt == ex_rf_waddr)) ? `Stop // 要写到的寄存器是当前ID阶段指令要读的寄存器，请求暂停
     : `NoStop;
 

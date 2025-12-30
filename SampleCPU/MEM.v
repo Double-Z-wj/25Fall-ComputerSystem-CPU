@@ -88,7 +88,7 @@ module MEM(
     } = ex_load_bus_r;
 
 
-
+    // 访存请求产生
     assign b_data = data_ram_sel_r[3] ? data_sram_rdata[31:24] : // 字节提取
                     data_ram_sel_r[2] ? data_sram_rdata[23:16] :
                     data_ram_sel_r[1] ? data_sram_rdata[15: 8] : 
