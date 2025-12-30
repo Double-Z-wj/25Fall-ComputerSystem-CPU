@@ -44,10 +44,10 @@ module WB(
     wire [31:0] rf_wdata;
 
     assign {
-        wb_pc,
-        rf_we,
-        rf_waddr,
-        rf_wdata
+        wb_pc,      // 当前指令的 PC (用于调试)
+        rf_we,      // 寄存器写使能 (1表示要写寄存器)
+        rf_waddr,   // 目标寄存器地址 (0~31)
+        rf_wdata    // 要写入的数据 (32位)
     } = mem_to_wb_bus_r;
 
     assign wb_to_rf_bus = {
@@ -57,7 +57,7 @@ module WB(
     };
 
     assign debug_wb_pc = wb_pc;
-    assign debug_wb_rf_wen = {4{rf_we}};
+    assign debug_wb_rf_wen = {4{rf_we}}; // 将1位使能扩展为4位字节使能
     assign debug_wb_rf_wnum = rf_waddr;
     assign debug_wb_rf_wdata = rf_wdata;
 

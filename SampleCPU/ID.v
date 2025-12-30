@@ -11,47 +11,52 @@
 // IF/ID阶段可能会取出经符号扩展为32位的立即数和两个从寄存器中读取的数，放入ID/EX流水线寄存器
 
 module ID(
-    input wire clk,
-    input wire rst,
+    input wire clk,//时钟
+    input wire rst,//复位
     // input wire flush,
-    input wire [`StallBus-1:0] stall,
-    
-    output wire stallreq,
+    input wire [`StallBus-1:0] stall,//暂停
 
-    input wire [`IF_TO_ID_WD-1:0] if_to_id_bus,
+    input wire [`IF_TO_ID_WD-1:0] if_to_id_bus,//来自IF阶段的信息总线
 
-    input wire [31:0] inst_sram_rdata,
+    input wire [31:0] inst_sram_rdata,//从指令SRAM读取的指令数据
 
-    input wire ex_id,
+    input wire ex_id,//来自EX阶段的暂停请求
 
+    // forwording回传内容
     input wire [`WB_TO_RF_WD-1:0] wb_to_rf_bus,
 
     input wire [`EX_TO_RF_WD-1:0] ex_to_rf_bus,
 
     input wire [`MEM_TO_RF_WD-1:0] mem_to_rf_bus,
 
-    output wire [71:0] id_hi_lo_bus,
     input wire [65:0] ex_hi_lo_bus,
+    
+    output wire stallreq,// 暂停请求
 
+    output wire [71:0] id_hi_lo_bus,// 输出到EX阶段的HI_LO信息总线
+    
+    // 访存相关
     output wire [`LoadBus-1:0] id_load_bus,
     output wire [`SaveBus-1:0] id_save_bus,
 
-    output wire stallreq_for_bru,
+    output wire stallreq_for_bru,// 来自分支跳转单元的暂停请求
 
-    output wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,
+    output wire [`ID_TO_EX_WD-1:0] id_to_ex_bus,// 输出到EX阶段的信息总线
 
-    output wire [`BR_WD-1:0] br_bus 
+    output wire [`BR_WD-1:0] br_bus // 输出到分支跳转单元的信息总线
 );
 
-    reg [`IF_TO_ID_WD-1:0] if_to_id_bus_r;
-    wire [31:0] inst;
-    wire [31:0] id_pc;
-    wire ce;
-    reg flag;
-    reg [31:0] buf_inst;
+    // 数据总线相关
+    reg [`IF_TO_ID_WD-1:0] if_to_id_bus_r; // IF到ID阶段的信息总线寄存器
+    wire [31:0] inst; // 当前指令
+    wire [31:0] id_pc;// 当前指令的PC
+    wire ce; // 指令使能信号
+    reg flag; // 缓存标志位
+    reg [31:0] buf_inst; // 缓存指令
 
+    // forwording回传内容拆解相关
     wire wb_rf_we;
-    wire [4:0] wb_rf_waddr;
+    wire [4:0] wb_rf_waddr; 
     wire [31:0] wb_rf_wdata;
 
     wire ex_rf_we;
@@ -63,7 +68,7 @@ module ID(
     wire [31:0] mem_rf_wdata;
 
     always @ (posedge clk) begin
-        if (rst) begin
+        if (rst) begin // 复位
             if_to_id_bus_r <= `IF_TO_ID_WD'b0; 
             flag <= 1'b0;    
             buf_inst <= 32'b0;
@@ -71,25 +76,31 @@ module ID(
         // else if (flush) begin
         //     ic_to_id_bus <= `IC_TO_ID_WD'b0;
         // end
-        else if (stall[1]==`Stop && stall[2]==`NoStop) begin
-            if_to_id_bus_r <= `IF_TO_ID_WD'b0;
-            flag <= 1'b0;
+        else if (stall[1]==`Stop && stall[2]==`NoStop) begin // ID阶段暂停，EX阶段运行
+            if_to_id_bus_r <= `IF_TO_ID_WD'b0; // 插入气泡
+            flag <= 1'b0; // 清除缓存标志
         end
-        else if (stall[1]==`NoStop) begin
+        else if (stall[1]==`NoStop) begin // 正常流动
             if_to_id_bus_r <= if_to_id_bus;
             flag <= 1'b0;
         end
         else if (stall[1]==`Stop && stall[2]==`Stop && ~flag) begin
-            flag <= 1'b1;
-            buf_inst <= inst_sram_rdata;
+            flag <= 1'b1; // 设置缓存标志
+            buf_inst <= inst_sram_rdata; // 缓存当前指令
         end  
     end
     
-    assign inst = ce ? flag ? buf_inst : inst_sram_rdata : 32'b0;    
+    // 指令选择逻辑
+    assign inst = ce ? 
+        flag ? buf_inst : // 使用缓存的指令
+        inst_sram_rdata : // 使用当前读取的指令
+    32'b0;    // 如果指令使能无效，输出空指令
+
+    // forwording回传内容拆解
     assign {
-        ex_rf_we,
-        ex_rf_waddr,
-        ex_rf_wdata
+        ex_rf_we,    // 使能
+        ex_rf_waddr, // 地址
+        ex_rf_wdata  // 数据
     } = ex_to_rf_bus;
     assign {
         mem_rf_we,
@@ -137,16 +148,19 @@ module ID(
     wire [31:0] ndata1, ndata2;
 
 //  数据相关
-    assign ndata1 = ((ex_rf_we && rs == ex_rf_waddr) ? ex_rf_wdata : 32'b0) | 
-                   ((!(ex_rf_we && rs == ex_rf_waddr) && (mem_rf_we && rs == mem_rf_waddr)) ? mem_rf_wdata : 32'b0) |
-                   ((!(ex_rf_we && rs == ex_rf_waddr) && !(mem_rf_we && rs == mem_rf_waddr) && (wb_rf_we && rs == wb_rf_waddr)) ? wb_rf_wdata : 32'b0) |
-                   (((ex_rf_we && rs == ex_rf_waddr) || (mem_rf_we && rs == mem_rf_waddr) || (wb_rf_we && rs == wb_rf_waddr)) ? 32'b0 : rdata1);
 
-    assign ndata2 = ((ex_rf_we && rt == ex_rf_waddr) ? ex_rf_wdata : 32'b0) | 
+    // 流水线相关，ex，mem，wb阶段的寄存器堆写使能，写地址，写数据
+    assign ndata1 = ((ex_rf_we && rs == ex_rf_waddr) ? ex_rf_wdata : 32'b0) | // 优先EX阶段 源寄存器1的地址等于EX阶段要写的地址，并且EX阶段写使能有效，直接用EX阶段的数据
+                   ((!(ex_rf_we && rs == ex_rf_waddr) && (mem_rf_we && rs == mem_rf_waddr)) ? mem_rf_wdata : 32'b0) | // MEM阶段
+                   ((!(ex_rf_we && rs == ex_rf_waddr) && !(mem_rf_we && rs == mem_rf_waddr) && (wb_rf_we && rs == wb_rf_waddr)) ? wb_rf_wdata : 32'b0) | // WB阶段
+                   (((ex_rf_we && rs == ex_rf_waddr) || (mem_rf_we && rs == mem_rf_waddr) || (wb_rf_we && rs == wb_rf_waddr)) ? 32'b0 : rdata1); // 读取默认寄存器堆数据
+
+    assign ndata2 = ((ex_rf_we && rt == ex_rf_waddr) ? ex_rf_wdata : 32'b0) | //源寄存器2地址等于EX阶段要写的地址，并且EX阶段写使能有效，直接用EX阶段的数据
                    ((!(ex_rf_we && rt == ex_rf_waddr) && (mem_rf_we && rt == mem_rf_waddr)) ? mem_rf_wdata : 32'b0) |
                    ((!(ex_rf_we && rt == ex_rf_waddr) && !(mem_rf_we && rt == mem_rf_waddr) && (wb_rf_we && rt == wb_rf_waddr)) ? wb_rf_wdata : 32'b0) |
                    (((ex_rf_we && rt == ex_rf_waddr) || (mem_rf_we && rt == mem_rf_waddr) || (wb_rf_we && rt == wb_rf_waddr)) ? 32'b0 : rdata2);
 
+    // 寄存器堆实例化，读写r0-r31
     regfile u_regfile(
     	.clk    (clk    ),
         .raddr1 (rs ),
@@ -158,6 +172,7 @@ module ID(
         .wdata  (wb_rf_wdata  )
     );
 
+    
     wire [31:0] hi, hi_rdata;
     wire [31:0] lo, lo_rdata;
     wire hi_we;
@@ -171,15 +186,16 @@ module ID(
         hi_wdata,
         lo_wdata
     } = ex_hi_lo_bus;
-
+    
+    // HI_LO寄存器相关实例化
     hi_lo_reg u_hi_lo_reg(
         .clk      (clk        ),
-        .hi_we    (hi_we      ),
-        .lo_we    (lo_we      ),
-        .hi_wdata (hi_wdata   ),
-        .lo_wdata (lo_wdata   ),
-        .hi_rdata (hi_rdata   ),
-        .lo_rdata (lo_rdata   )
+        .hi_we    (hi_we      ), // 高位写使能
+        .lo_we    (lo_we      ), // 低位写使能
+        .hi_wdata (hi_wdata   ), // 高位写数据
+        .lo_wdata (lo_wdata   ), // 低位写数据
+        .hi_rdata (hi_rdata   ), // 高位读数据
+        .lo_rdata (lo_rdata   )  // 低位读数据
     );
 
     assign hi = hi_we ? hi_wdata : hi_rdata;
@@ -197,6 +213,10 @@ module ID(
     assign base = inst[25:21];
     assign offset = inst[15:0];
     assign sel = inst[2:0];
+
+    /*
+        定义指令信号
+    */
 
     // 算术运算指令
     wire inst_addu; // 将寄存器 rs 的值与寄存器 rt 的值相加，结果写入 rd 寄存器中。
@@ -299,13 +319,13 @@ module ID(
     decoder_6_64 u0_decoder_6_64(
     	.in  (opcode  ),
         .out (op_d )
-    );
+    ); // 二进制编码转为one-hot编码，64
     
     // 6-64译码器
     decoder_6_64 u1_decoder_6_64(
     	.in  (func  ),
         .out (func_d )
-    );
+    ); // 64
     
     // 5-32译码器
     decoder_5_32 u0_decoder_5_32(
@@ -329,7 +349,14 @@ module ID(
         .out (sa_d )
     );
 
+    /*
+        一条指令
+        op[31:26] rs[25:21] rt[20:16] rd[15:11] sa[10:6] func[5:0]
+    */
+
     
+    // 判断
+
     /* 
         算术运算指令
     */
@@ -369,9 +396,9 @@ module ID(
     */
 
     // 位与
-    assign inst_and = op_d[6'b00_0000] & func_d[6'b10_0100];
+    assign inst_and     = op_d[6'b00_0000] & func_d[6'b10_0100];
     // 立即数位与
-    assign inst_andi = op_d[6'b00_1100];
+    assign inst_andi    = op_d[6'b00_1100];
     // 寄存器高半部分置立即数
     assign inst_lui     = op_d[6'b00_1111];    
     // 位或非
@@ -479,13 +506,13 @@ module ID(
                                 inst_slti | inst_or | inst_srav | inst_sltu | inst_slt | inst_sltiu | inst_sllv| inst_srlv |
                                 inst_div | inst_divu |inst_mult | inst_multu |
                                 inst_mthi | inst_mtlo 
-                                ;
+                                ; // 源寄存器1选择rs(寄存器1)
 
     // pc to reg1
-    assign sel_alu_src1[1] = inst_jal | inst_jalr | inst_bltzal | inst_bgezal;
+    assign sel_alu_src1[1] = inst_jal | inst_jalr | inst_bltzal | inst_bgezal; // 源寄存器1选择pc
 
     // sa_zero_extend to reg1
-    assign sel_alu_src1[2] = inst_sll | inst_sra | inst_srl;
+    assign sel_alu_src1[2] = inst_sll | inst_sra | inst_srl; // 源寄存器1选择sa(移位量)
 
     
     // rt to reg2
@@ -503,7 +530,7 @@ module ID(
     // imm_zero_extend to reg2
     assign sel_alu_src2[3] = inst_ori | inst_andi | inst_xori;
 
-
+    // ALU 运算类型
 
     assign op_add = inst_add | inst_addi | inst_addiu |  inst_addu |  inst_add | inst_addi |
                     inst_jal | inst_jalr | inst_bltzal | inst_bgezal |
@@ -524,19 +551,19 @@ module ID(
 
     assign alu_op = {op_add, op_sub, op_slt, op_sltu,
                      op_and, op_nor, op_or, op_xor,
-                     op_sll, op_srl, op_sra, op_lui};
+                     op_sll, op_srl, op_sra, op_lui}; // 选择ALU运算类型
 
 
 
-    // load and store enable
+    // load and store enable 是否正常执行访存操作，内存sam
     assign data_ram_en = inst_lw | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_sw | inst_sb | inst_sh  ;
 
-    // write enable
+    // write enable 写使能，内存sam，0000表示只读，1111表示全写，0011表示写低半字，0001表示写低字节
     assign data_ram_wen = inst_sw | inst_sb | inst_sh ? 4'b1111 : 4'b0000;
 
 
 
-    // regfile store enable
+    // regfile store enable 写使能，判断指令是否要写回寄存器
     assign rf_we =  inst_ori | inst_lui | inst_addiu | inst_subu | inst_addu | inst_add | inst_addi | inst_sub |
                     inst_jr | inst_jal | inst_jalr | inst_bgezal | inst_bltzal |
                     inst_sll | inst_sllv | inst_sra | inst_srl | inst_srlv | inst_srav |
@@ -544,19 +571,17 @@ module ID(
                     inst_lw | inst_lb | inst_lbu | inst_lh | inst_lhu |
                     inst_slt | inst_slti | inst_sltu | inst_sltiu |
                     inst_mfhi | inst_mflo
-
                     ;
 
 
-
-    // store in [rd]
+    // 寄存器写回位置控制
+    // store in [rd] 寄存器地址来源
     assign sel_rf_dst[0] =  inst_sub |inst_subu | inst_addu |  inst_add |
                             inst_and | inst_nor | inst_or | inst_xor |
                             inst_slt | inst_sltu |
                             inst_jalr | 
                             inst_sra | inst_srl | inst_srlv | inst_srav | inst_sll | inst_sllv |
-                            inst_mfhi | inst_mflo
-                            ;
+                            inst_mfhi | inst_mflo;
 
     // store in [rt] 
     assign sel_rf_dst[1] =  inst_ori | inst_lui | inst_addiu | inst_lw | inst_addi | inst_slti | inst_sltiu |
@@ -566,15 +591,15 @@ module ID(
     // store in [31]
     assign sel_rf_dst[2] = inst_jal | inst_jalr | inst_bltzal | inst_bgezal;
 
-    // sel for regfile address
+    // sel for regfile address 写回寄存器地址选择
     assign rf_waddr = {5{sel_rf_dst[0]}} & rd 
                     | {5{sel_rf_dst[1]}} & rt
                     | {5{sel_rf_dst[2]}} & 32'd31;
 
-    // 0 from alu_res ; 1 from ld_res
+    // 0 from alu_res ; 1 from ld_res 写回数据选择 决定写回寄存器的数据是来自 ALU 的运算结果，还是来自内存的读取结果。
     assign sel_rf_res = inst_lw | inst_lb | inst_lbu | inst_lh | inst_lhu ? 1'b1:1'b0;
 
-    assign id_to_ex_bus = {
+    assign id_to_ex_bus = { // 打包
         id_pc,          // 158:127
         inst,           // 126:95
         alu_op,         // 94:83
@@ -601,18 +626,19 @@ module ID(
     wire [31:0] pc_plus_4;
     assign pc_plus_4 = id_pc + 32'h4;
 
-    assign rs_eq_rt = (ndata1 == ndata2);
+    assign rs_eq_rt = (ndata1 == ndata2); // 等于跳转
     assign rs_ge_z  = (!ndata1[31]); // >=跳转
     assign rs_gt_z  = ((!ndata1[31]) && ndata1!=0); // >跳转
     assign rs_le_z  = (ndata1 == 0 | ndata1[31]); // <=跳转
     assign rs_lt_z  = (ndata1[31]); // <跳转
 
+    // 是否跳转
     assign br_e = inst_beq & rs_eq_rt | inst_j | inst_jalr | inst_jr | inst_jal | inst_bne & ~rs_eq_rt | 
                   inst_bgez & rs_ge_z | inst_bgtz & rs_gt_z |inst_blez & rs_le_z | inst_bltz & rs_lt_z |
                   inst_bgezal & rs_ge_z | inst_bltzal & rs_lt_z ;
                    
-            
-    assign br_addr = 
+    // 计算跳转地址        
+    assign br_addr =    // inst 当前指令
                         (inst_beq       ? (pc_plus_4 + {{14{inst[15]}},inst[15:0],2'b0}) : 32'b0) |
                         (inst_jr        ? ndata1 : 32'b0) |
                         (inst_jal       ? {pc_plus_4[31:28],instr_index,2'b0} : 32'b0) |
@@ -626,6 +652,7 @@ module ID(
                         (inst_j         ? ({ pc_plus_4[31:28]         ,inst[25:0],2'b0}) : 32'b0) |
                         (inst_jalr      ? ndata1:32'b0);
 
+    // HI/LO寄存器操作指令
     assign id_hi_lo_bus = {
         inst_mfhi,
         inst_mflo,
@@ -639,6 +666,7 @@ module ID(
         lo
     };
     
+    // 访存指令
     assign id_load_bus = {
         inst_lb,
         inst_lbu,
@@ -647,18 +675,23 @@ module ID(
         inst_lw
     };
 
+    // 存储指令
     assign id_save_bus = {
         inst_sb,
         inst_sh,
         inst_sw
     };
 
+    // 分支跳转指令
     assign br_bus = {
         br_e,
         br_addr
     };
 
-    assign stallreq_for_bru = ex_id & (& ex_rf_we & (rs == ex_rf_waddr | rt == ex_rf_waddr)) ? `Stop : `NoStop;    
+    // 与EX阶段进行数据相关性比较，决定是否暂停流水线
+    assign stallreq_for_bru = ex_id & // 当前EX阶段指令要写寄存器，请求暂停
+    (& ex_rf_we & (rs == ex_rf_waddr | rt == ex_rf_waddr)) ? `Stop // 要写到的寄存器是当前ID阶段指令要读的寄存器，请求暂停
+    : `NoStop;
 
 
 endmodule

@@ -53,13 +53,13 @@ module EX(
         // else if (flush) begin
         //     id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
         // end
-        else if (stall[2]==`Stop && stall[3]==`NoStop) begin
+        else if (stall[2]==`Stop && stall[3]==`NoStop) begin // EX暂停，MEM继续，插入气泡
             id_to_ex_bus_r <= `ID_TO_EX_WD'b0;
             id_save_bus_r <= `SaveBus'b0;
             id_load_bus_r <= `LoadBus'b0;
             id_hi_lo_bus_r <= 71'b0;
         end
-        else if (stall[2]==`NoStop) begin
+        else if (stall[2]==`NoStop) begin // 正常传递
             id_to_ex_bus_r <= id_to_ex_bus;
             id_save_bus_r <= id_save_bus;
             id_load_bus_r <= id_load_bus;
@@ -67,18 +67,18 @@ module EX(
         end
     end
 
-    wire [31:0] ex_pc, inst;
-    wire [11:0] alu_op;
-    wire [2:0] sel_alu_src1;
-    wire [3:0] sel_alu_src2;
-    wire data_ram_en;
-    wire [3:0] data_ram_wen;
-    wire rf_we;
-    wire [4:0] rf_waddr;
-    wire sel_rf_res;
-    wire [31:0] rf_rdata1, rf_rdata2;
-    reg is_in_delayslot;
-    wire [3:0] byte_sel;
+    wire [31:0] ex_pc, inst;          // 当前指令PC和指令本身
+    wire [11:0] alu_op;               // ALU操作类型
+    wire [2:0] sel_alu_src1;          // ALU源操作数1选择
+    wire [3:0] sel_alu_src2;          // ALU源操作数2选择
+    wire data_ram_en;                 // 数据存储器使能
+    wire [3:0] data_ram_wen;          // 数据存储器写使能
+    wire rf_we;                       // 寄存器堆写使能
+    wire [4:0] rf_waddr;              // 寄存器堆写地址
+    wire sel_rf_res;                  // 寄存器堆写数据选择 0 from alu_res  1 from ld_res
+    wire [31:0] rf_rdata1, rf_rdata2; // 来自寄存器堆的两个源操作数
+    reg is_in_delayslot;              // 是否在延迟槽中
+    wire [3:0] byte_sel;              // 字节选择信号
 
     assign {
         ex_pc,          // 158:127
@@ -91,8 +91,8 @@ module EX(
         rf_we,          // 70
         rf_waddr,       // 69:65
         sel_rf_res,     // 64
-        rf_rdata1,         // 63:32
-        rf_rdata2          // 31:0
+        rf_rdata1,      // 63:32
+        rf_rdata2       // 31:0
     } = id_to_ex_bus_r;
 
     wire [31:0] imm_sign_extend, imm_zero_extend, sa_zero_extend;
@@ -131,13 +131,17 @@ module EX(
 
 
 
-    assign alu_src1 = sel_alu_src1[1] ? ex_pc :
-                      sel_alu_src1[2] ? sa_zero_extend : rf_rdata1;
+    // ALU源操作数选择，获取
+    assign alu_src1 = sel_alu_src1[1] ? ex_pc : // PC值
+                      sel_alu_src1[2] ? sa_zero_extend : // 指令中的移位值sa
+                      rf_rdata1; // 寄存器值rs
 
-    assign alu_src2 = sel_alu_src2[1] ? imm_sign_extend :
-                      sel_alu_src2[2] ? 32'd8 :
-                      sel_alu_src2[3] ? imm_zero_extend : rf_rdata2;
-    
+    assign alu_src2 = sel_alu_src2[1] ? imm_sign_extend : // 符号扩展的立即数
+                      sel_alu_src2[2] ? 32'd8 : // 常数8（用于jal/jalr）
+                      sel_alu_src2[3] ? imm_zero_extend : // 零扩展的立即数
+                      rf_rdata2; // 寄存器值rt
+
+    // 实例化ALU模块，ALU运算
     alu u_alu(
     	.alu_control (alu_op ),
         .alu_src1    (alu_src1    ),
@@ -174,7 +178,7 @@ module EX(
     };
 
 
-
+    // 访存指令类型传递
     assign {
         inst_lb,
         inst_lbu,
@@ -231,7 +235,7 @@ module EX(
     mul u_mul(
     	.clk        (clk            ),
         .resetn     (~rst           ),
-        .mul_signed (mul_signed     ),
+        .mul_signed (mul_signed     ),   // 是否有符号乘法
         .ina        (rf_rdata1        ), // 乘法源操作数1
         .inb        (rf_rdata2        ), // 乘法源操作数2
         .result     (mul_result     ) // 乘法结果 64bit
