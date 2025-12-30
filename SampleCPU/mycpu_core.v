@@ -77,7 +77,7 @@ module mycpu_core(
         .ex_id           (ex_id           ),
         .id_load_bus     (id_load_bus     ),
         .id_save_bus     (id_save_bus     ),
-        .stallreq_for_bru(stallreq_for_bru),
+        .stallreq_load_use(stallreq_load_use),
         .br_bus          (br_bus          ),
         .id_hi_lo_bus    (id_hi_lo_bus    ),
         .ex_hi_lo_bus    (ex_hi_lo_bus    )
@@ -135,7 +135,7 @@ module mycpu_core(
     	.rst   (rst   ),
         .stallreq_for_ex (stallreq_for_ex ),
         .stallreq_for_load(stallreq_for_load),
-        .stallreq_for_bru(stallreq_for_bru),
+        .stallreq_load_use(stallreq_load_use),
         .stall (stall )
     );
     

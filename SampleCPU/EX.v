@@ -274,7 +274,7 @@ module EX(
     wire inst_div, inst_divu;
     wire div_ready_i;
     reg stallreq_for_div;
-    assign stallreq_for_ex = stallreq_for_div;
+    assign stallreq_for_ex = stallreq_for_div; // 除法操作时的暂停请求
 
     reg [31:0] div_opdata1_o;
     reg [31:0] div_opdata2_o;
